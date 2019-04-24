@@ -1,0 +1,48 @@
+hive参数调优
+列裁剪，分区裁剪
+
+1.设置任务名称，方便查找监控 
+    SET mapreduce.job.name=P_DWA_D_IA_S_USER_PROD; 
+2.有数据倾斜的时候进行负载均衡 
+    set hive.groupby.skewindata=true; 
+3.当hive.groupby.skewindata=true时，hive不支持多列上的去重操作 
+    eg:ELECT ip, count(DISTINCTuid), count(DISTINCT uname) FROMlog GROUP BY ip 
+4.groupby优化
+    hive.map.aggr = true 是否在 Map 端进行聚合，默认为True
+    hive.groupby.mapaggr.checkinterval =100000 在 Map 端进行聚合操作的条目数目
+    hive.groupby.skewindata = true 有数据倾斜的时候进行负载均衡(会产生2个mr)
+    
+5.每个MapReduce作业的任务可以申请的内存资源数量
+    SET mapreduce.map.memory.mb=2048; 每个MapReduce作业的map任务可以申请的内存资源数量 
+    SET mapreduce.reduce.memory.mb=8192; 每个MapReduce作业的reduce任务可以申请的内存资源数量
+6.对于简单的不需要聚合
+    set hive.fetch.task.conversion=more;
+7.合并小文件
+    hive.merge.mapredfiles(默认为false) 正常的map-reduce job后，是否启动merge job来合并reduce端输出的结果，建议开启
+    set mapred.max.split.size=524288000;
+    set mapred.min.split.size.per.node=471859200;
+    set mapred.min.split.size.per.rack=471859200;
+    set hive.hadoop.supports.splittable.combineinputformat=true;     
+    set hive.input.format=org.apache.hadoop.hive.ql.io.CombineHiveInputFormat; 
+    注：第四个参数存在其他参数才能生效
+8.是否允许动态分区
+    hive.exec.dynamic.partition.mode=nonstrict
+    每个 mapper or reducer可以创建的最大动态分区数
+    hive.exec.max.dynamic.partitions=1000
+    一个DML操作可以创建的最大动态分区数
+    hive.exec.max.created.files=100000
+9.
+    hive.exec.reducers.bytes.per.reducer    默认值： 1000000000 （1G） 每个reduce的接受的数据量
+    hive.exec.reducers.max  默认值：999     reduce的最大个数 
+    mapred.reduce.tasks 设置mapreduce的reduce个数  默认值：-1 ，-1 代表自动根据作业的情况来设置reduce的值 
+10.
+    hive.cli.print.header   可以控制在处理中是否显示表列名
+    hive.cli.print.current.db   开启这个属性可以再CLI提示符前打印出当前所在的数据库名
+11.
+    hive.mapjoin.smalltable.filesize：输入表文件的mapjoin阈值，如果输入文件的大小小于该值，则试图将普通join转化为mapjoin，默认25MB；
+
+
+sql调优
+1.只有inner join的时候谓词才会下推
+eg: select * from A inner join B on A.id=B.id where A.pt='' and B.pt=''(分区扫描)
+select * from A left outer join B on A.id=B.id where A.pt='' and B.pt='' (全表扫描)
